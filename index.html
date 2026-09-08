@@ -42,31 +42,60 @@ input{ font-family:inherit; }
 .hide{ display:none !important; }
 
 .app-shell{
-  position:relative; min-height:100vh; max-width:480px; margin:0 auto; overflow-x:hidden; padding-bottom:48px;
-  background:
-    radial-gradient(circle at 15% 0%, rgba(167,139,250,.08), transparent 45%),
-    radial-gradient(circle at 100% 30%, rgba(61,224,160,.05), transparent 40%),
-    var(--bg);
+  position:relative; min-height:100vh; overflow-x:hidden;
+  background: var(--bg);
 }
-@media (min-width:640px){
-  .app-shell{ min-height:100dvh; border-left:1px solid var(--border-soft); border-right:1px solid var(--border-soft); box-shadow:0 30px 90px -20px rgba(0,0,0,.7); }
+.bg-glow{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+.bg-glow::before, .bg-glow::after{
+  content:''; position:absolute; width:60vw; height:60vw; max-width:700px; max-height:700px; border-radius:50%; filter:blur(80px); opacity:.16;
 }
+.bg-glow::before{ top:-10%; left:-10%; background:var(--violet-soft); animation:driftA 22s ease-in-out infinite alternate; }
+.bg-glow::after{ bottom:-15%; right:-10%; background:var(--green-soft); animation:driftB 26s ease-in-out infinite alternate; }
+@keyframes driftA{ from{ transform:translate(0,0) scale(1); } to{ transform:translate(8%,6%) scale(1.15); } }
+@keyframes driftB{ from{ transform:translate(0,0) scale(1); } to{ transform:translate(-6%,-8%) scale(1.1); } }
 
-.header{ padding:20px 16px 8px; }
-.brand-title{ font-size:19px; font-weight:800; letter-spacing:-.01em; margin:0; }
+.dashboard-shell{ position:relative; z-index:1; max-width:1180px; margin:0 auto; padding:20px 20px 56px; }
+.dashboard-grid{ display:grid; grid-template-columns:1fr 300px; gap:20px 24px; align-items:start; }
+@media (max-width:880px){ .dashboard-grid{ grid-template-columns:1fr; } }
+
+.card{ background:linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%); border:1px solid var(--border); border-radius:var(--radius-lg); transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+@media (hover:hover){ .card.hoverable:hover{ transform:translateY(-2px); border-color:var(--border-hi, #333f52); box-shadow:0 14px 34px -14px rgba(0,0,0,.55); } }
+.stagger{ opacity:0; animation:fadeIn .5s cubic-bezier(.22,1,.36,1) forwards; }
+.stagger:nth-child(1){ animation-delay:.05s; } .stagger:nth-child(2){ animation-delay:.12s; }
+.stagger:nth-child(3){ animation-delay:.19s; } .stagger:nth-child(4){ animation-delay:.26s; }
+
+/* Sidebar */
+.sidebar{ display:flex; flex-direction:column; gap:16px; }
+.side-widget-title{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:800; margin:0 0 12px; }
+.side-link{
+  display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:13px; margin-bottom:8px;
+  background:var(--surface-2); border:1px solid var(--border-soft); color:var(--text); text-decoration:none;
+  font-size:13px; font-weight:700; transition:transform .15s ease, border-color .15s ease, background .15s ease;
+}
+.side-link:last-child{ margin-bottom:0; }
+.side-link:hover{ border-color:var(--violet-soft); background:var(--surface-3); transform:translateX(3px); }
+.side-link:active{ transform:scale(.98); }
+.side-link .ic{ width:32px; height:32px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:15px; background:var(--surface-3); flex-shrink:0; }
+.side-link .arrow{ margin-left:auto; opacity:.5; }
+.side-widget-sub{ font-size:11px; color:var(--text-faint); margin:-6px 0 12px; line-height:1.5; }
+
+.clock{ font-size:13px; font-weight:700; color:var(--violet-soft); }
+.clock-dot{ display:inline-block; width:6px; height:6px; border-radius:99px; background:var(--green-soft); margin-right:6px; animation:pulse 1.8s ease-in-out infinite; box-shadow:0 0 8px 1px rgba(61,224,160,.5); }
+@keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+.header{ padding:4px 0 0; margin-bottom:16px; }
+.brand-title{ font-size:22px; font-weight:800; letter-spacing:-.01em; margin:0; }
 .brand-date{ font-size:13px; font-weight:500; color:var(--text-dim); margin:4px 0 0; text-transform:capitalize; }
-
-.card{ background:linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%); border:1px solid var(--border); border-radius:var(--radius-lg); }
 .section-label{ font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--text-faint); }
 .divider{ height:1px; background:linear-gradient(90deg, transparent, var(--border), transparent); }
 
 /* Selector de contexto */
-.context-bar{ display:flex; gap:6px; padding:4px; margin:12px 16px 4px; }
+.context-bar{ display:flex; gap:6px; padding:4px; }
 .context-btn{ flex:1; padding:10px 8px; border-radius:12px; font-size:12px; font-weight:700; color:var(--text-faint); transition:all .18s ease; text-align:center; }
 .context-btn.active{ color:#1a0e33; background:linear-gradient(180deg,#C4B5FD,var(--violet-soft)); box-shadow:0 4px 16px -4px var(--violet-glow); }
 .context-btn:active{ transform:scale(.96); }
 
-main{ padding:0 16px; }
+.main-col{ display:flex; flex-direction:column; gap:16px; margin-bottom:20px; }
 
 /* Metas */
 .meta-row{ display:flex; align-items:center; gap:10px; padding:10px 0; }
@@ -121,54 +150,78 @@ main{ padding:0 16px; }
 <body>
 
 <div class="app-shell">
+  <div class="bg-glow"></div>
 
   <div id="toastHost" style="position:fixed; left:50%; top:12px; z-index:60; transform:translateX(-50%); width:90%; max-width:460px; pointer-events:none;"></div>
 
-  <!-- Header -->
-  <header class="header row-between">
-    <div>
-      <p class="brand-title">Hola 👋</p>
-      <p id="fechaHoy" class="brand-date">—</p>
+  <div class="dashboard-shell">
+
+    <!-- Header -->
+    <header class="header row-between">
+      <div>
+        <p class="brand-title">Hola 👋</p>
+        <p id="fechaHoy" class="brand-date">—</p>
+      </div>
+      <div class="row g-3">
+        <p class="clock mono"><span class="clock-dot"></span><span id="relojVivo">--:--</span></p>
+        <button id="syncBadge" style="width:36px; height:36px; border-radius:999px; background:var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center;" title="Actualizar datos">
+          <svg id="syncIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.35M21 3v6h-6"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="card context-bar" style="margin-bottom:18px;">
+      <button data-context="local" class="context-btn">🏠 Local</button>
+      <button data-context="cursada" class="context-btn">🎓 Cursada</button>
+      <button data-context="estudio" class="context-btn">💻 Estudio</button>
     </div>
-    <button id="syncBadge" style="width:36px; height:36px; border-radius:999px; background:var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center;" title="Actualizar datos">
-      <svg id="syncIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.35M21 3v6h-6"/></svg>
-    </button>
-  </header>
 
-  <div class="card context-bar" style="margin:12px 16px 20px;">
-    <button data-context="local" class="context-btn">🏠 Local</button>
-    <button data-context="cursada" class="context-btn">🎓 Cursada</button>
-    <button data-context="estudio" class="context-btn">💻 Estudio</button>
+    <div class="dashboard-grid">
+      <main class="main-col">
+
+        <!-- Metas innegociables -->
+        <section class="card stagger hoverable" style="padding:16px;">
+          <div class="row-between" style="margin-bottom:4px;">
+            <p class="section-label">Metas innegociables de hoy</p>
+            <p id="metasCount" class="mono" style="font-size:11px; font-weight:700; color:var(--text-dim);">0/3</p>
+          </div>
+          <div class="progress-track" style="margin:10px 0 6px;">
+            <div id="metasProgress" class="progress-fill" style="width:0%;"></div>
+          </div>
+          <div id="metasList"></div>
+        </section>
+
+        <!-- Hábitos -->
+        <section class="card stagger hoverable" style="padding:16px;">
+          <p class="section-label" style="margin-bottom:6px;">Hábitos de hoy</p>
+          <div id="habitosList"></div>
+        </section>
+
+        <!-- Rutina semanal -->
+        <section class="card stagger hoverable" style="padding:16px;">
+          <p class="section-label" style="margin-bottom:10px;">Rutina semanal</p>
+          <div id="dayTabs" class="day-tabs"></div>
+          <div id="timelineHost" class="timeline" style="margin-top:16px;"></div>
+        </section>
+
+      </main>
+
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="card stagger hoverable" style="padding:16px;">
+          <p class="side-widget-title">🏪 Negocio</p>
+          <p class="side-widget-sub">Accesos rápidos a lo que ya tenés armado.</p>
+          <a class="side-link" href="https://trello.com/b/woDKeVha/turnos-de-hospital" target="_blank" rel="noopener">
+            <span class="ic">🏥</span> Turnos Hospital <span class="arrow">↗</span>
+          </a>
+          <a class="side-link" href="https://cargaya-app.vercel.app/" target="_blank" rel="noopener">
+            <span class="ic">🔌</span> Accesorios <span class="arrow">↗</span>
+          </a>
+        </div>
+      </aside>
+    </div>
+
   </div>
-
-  <main class="fade-in col g-3">
-
-    <!-- Metas innegociables -->
-    <section class="card" style="padding:16px;">
-      <div class="row-between" style="margin-bottom:4px;">
-        <p class="section-label">Metas innegociables de hoy</p>
-        <p id="metasCount" class="mono" style="font-size:11px; font-weight:700; color:var(--text-dim);">0/3</p>
-      </div>
-      <div class="progress-track" style="margin:10px 0 6px;">
-        <div id="metasProgress" class="progress-fill" style="width:0%;"></div>
-      </div>
-      <div id="metasList"></div>
-    </section>
-
-    <!-- Hábitos -->
-    <section class="card" style="padding:16px;">
-      <p class="section-label" style="margin-bottom:6px;">Hábitos de hoy</p>
-      <div id="habitosList"></div>
-    </section>
-
-    <!-- Rutina semanal -->
-    <section class="card" style="padding:16px;">
-      <p class="section-label" style="margin-bottom:10px;">Rutina semanal</p>
-      <div id="dayTabs" class="day-tabs"></div>
-      <div id="timelineHost" class="timeline" style="margin-top:16px;"></div>
-    </section>
-
-  </main>
 </div>
 
 <script>
@@ -283,6 +336,13 @@ function renderFecha(){
   const txt = d.toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' });
   document.getElementById('fechaHoy').textContent = txt;
 }
+
+function tickReloj(){
+  const el = document.getElementById('relojVivo');
+  if (el) el.textContent = new Date().toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' });
+}
+setInterval(tickReloj, 1000);
+tickReloj();
 
 function renderContextBar(activeOverride){
   const active = activeOverride || Store.getContext();
