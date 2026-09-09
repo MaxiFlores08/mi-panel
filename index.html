@@ -31,7 +31,7 @@
       </div>
     </header>
 
-    <div class="card context-bar" style="margin-bottom:18px;">
+    <div id="contextBar" class="card context-bar" style="margin-bottom:18px;">
       <button data-context="local" class="context-btn">🏠 Local</button>
       <button data-context="cursada" class="context-btn">🎓 Cursada</button>
       <button data-context="estudio" class="context-btn">💻 Estudio</button>
@@ -101,6 +101,10 @@
               <p class="section-label">Tus deudas</p>
               <p id="deudasActivasCount" class="mono" style="font-size:11px; color:var(--text-dim);">0 activas</p>
             </div>
+            <button data-action="new-debt" class="btn btn-fin" style="width:100%; margin-bottom:14px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#241a02" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+              Nueva deuda
+            </button>
             <div id="deudasList"></div>
           </section>
 
