@@ -170,6 +170,7 @@ function switchView(name){
   });
 
   document.getElementById('fabNuevaDeuda').classList.toggle('hide', name !== 'deudas');
+  document.getElementById('contextBar').classList.toggle('hide', name !== 'inicio');
 }
 
 function renderContextBar(activeOverride){
