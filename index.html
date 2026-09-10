@@ -189,19 +189,32 @@
 
     <div id="paymentsSection" class="hide">
       <div class="divider" style="margin:20px 0;"></div>
-      <div class="row-between" style="margin-bottom:8px;">
+      <div class="row-between" style="margin-bottom:2px;">
         <p class="section-label">Saldo restante</p>
-        <p id="dSaldoRestante" class="mono" style="font-size:17px; font-weight:800; color:var(--red);">$0</p>
+        <div style="text-align:right;">
+          <p id="dSaldoRestante" class="mono" style="font-size:17px; font-weight:800; color:var(--red); margin:0;">$0</p>
+          <p id="dSaldoUSD" class="mono" style="font-size:10px; color:var(--text-faint); margin:2px 0 0;"></p>
+        </div>
       </div>
-      <div class="progress-track" style="margin-bottom:16px;">
+      <div class="progress-track" style="margin:10px 0 16px;">
         <div id="dProgressFill" class="progress-fill" style="width:0%; background:linear-gradient(90deg,#FDE68A,var(--amber));"></div>
       </div>
       <p class="section-label" style="margin-bottom:8px;">Registrar pago</p>
+      <p style="font-size:11px; color:var(--text-faint); margin:-2px 0 10px;">Podés pagar en cualquier moneda, no hace falta que sea la misma de la deuda.</p>
       <div class="row g-2">
-        <input id="dPagoMonto" type="number" inputmode="numeric" placeholder="Monto del pago" class="field mono flex-1">
-        <button data-action="add-payment" class="btn btn-fin" style="width:auto; padding:13px 18px;">Pagar</button>
+        <input id="dPagoMonto" type="number" inputmode="numeric" placeholder="Monto" class="field mono flex-1">
+        <select id="dPagoMoneda" class="field mono" style="width:auto; flex-shrink:0;">
+          <option value="ARS">$ ARS</option>
+          <option value="USD">US$ USD</option>
+          <option value="BTC">₿ BTC</option>
+          <option value="DOGE">Ð DOGE</option>
+          <option value="SOL">◎ SOL</option>
+          <option value="MATIC">⬡ MATIC</option>
+          <option value="BNB">BNB</option>
+        </select>
+        <button data-action="add-payment" class="btn btn-fin" style="width:auto; padding:13px 18px; flex-shrink:0;">Pagar</button>
       </div>
-      <p class="section-label" style="margin:16px 0 8px;">Pagos registrados</p>
+      <p class="section-label" style="margin:18px 0 8px;">Pagos registrados</p>
       <div id="paymentsList" class="col g-1"></div>
       <button data-action="delete-debt" style="width:100%; margin-top:18px; text-align:center; font-size:12px; font-weight:700; color:var(--red); background:none;">Eliminar deuda completa</button>
     </div>
