@@ -74,7 +74,13 @@
         <div id="view-deudas" class="view-pane">
 
           <section class="card card-accent stagger" style="--accent:var(--amber); padding:16px;">
-            <p class="section-label" style="margin-bottom:10px;">Resumen financiero</p>
+            <div class="row-between" style="margin-bottom:10px;">
+              <p class="section-label">Resumen financiero</p>
+              <button data-action="refresh-rates" style="display:flex; align-items:center; gap:4px; font-size:10px; font-weight:700; color:var(--cyan); background:none;">
+                <svg id="ratesIcon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-2.6-6.35M21 3v6h-6"/></svg>
+                <span id="ratesUpdated">cotizaciones</span>
+              </button>
+            </div>
             <div class="fin-summary">
               <div class="fin-tile" data-action="edit-wallet" data-tipo="efectivo">
                 <p style="font-size:10px; font-weight:700; color:var(--text-faint); margin:0;">💵 EFECTIVO</p>
@@ -87,11 +93,11 @@
             </div>
             <div class="divider" style="margin:14px 0;"></div>
             <div class="row-between" style="margin-bottom:8px;">
-              <p style="font-size:12px; color:var(--text-dim); margin:0;">Total adeudado</p>
+              <p style="font-size:12px; color:var(--text-dim); margin:0;">Total adeudado (USD)</p>
               <p id="finTotalAdeudado" class="mono" style="font-size:15px; font-weight:800; color:var(--red); margin:0;">$0</p>
             </div>
             <div class="row-between">
-              <p style="font-size:12px; color:var(--text-dim); margin:0;">Diferencia (disponible - deuda)</p>
+              <p style="font-size:12px; color:var(--text-dim); margin:0;">Diferencia (USD)</p>
               <p id="finDiferencia" class="mono" style="font-size:15px; font-weight:800; margin:0;">$0</p>
             </div>
           </section>
@@ -159,9 +165,21 @@
           <input id="dMonto" type="number" inputmode="numeric" placeholder="0" class="field mono">
         </div>
         <div>
-          <label style="display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Fecha</label>
-          <input id="dFecha" type="date" class="field mono">
+          <label style="display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Moneda</label>
+          <select id="dMoneda" class="field mono">
+            <option value="ARS">$ Peso Argentino</option>
+            <option value="USD">US$ Dólar</option>
+            <option value="BTC">₿ Bitcoin</option>
+            <option value="DOGE">Ð Dogecoin</option>
+            <option value="SOL">◎ Solana</option>
+            <option value="MATIC">⬡ Polygon</option>
+            <option value="BNB">BNB</option>
+          </select>
         </div>
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Fecha</label>
+        <input id="dFecha" type="date" class="field mono">
       </div>
     </div>
     <div class="row g-2" style="margin-top:20px;">
