@@ -159,19 +159,33 @@ function toUSD(monto, moneda){
    ========================================================= */
 const Fin = {
   pagosDeDeuda(deudaId){ return Store.getPagos().filter(p => p.deudaId === deudaId); },
-  totalPagado(deudaId){ return Fin.pagosDeDeuda(deudaId).reduce((s, p) => s + p.monto, 0); },
-  saldoRestante(deuda){ return Math.max(0, deuda.monto - Fin.totalPagado(deuda.id)); },
+
+  // Cada pago puede estar en una moneda distinta a la deuda — todo se compara en USD.
+  totalPagadoUSD(deudaId){
+    return Fin.pagosDeDeuda(deudaId).reduce((s, p) => s + toUSD(p.monto, p.moneda || 'ARS'), 0);
+  },
+  saldoRestanteUSD(deuda){
+    const deudaUSD = toUSD(deuda.monto, deuda.moneda || 'ARS');
+    return Math.max(0, deudaUSD - Fin.totalPagadoUSD(deuda.id));
+  },
+  // Convierte el saldo (en USD) de vuelta a la moneda original de la deuda, para mostrarlo ahí.
+  saldoRestanteEnMoneda(deuda){
+    const rate = Rates[deuda.moneda || 'ARS'];
+    if (!rate) return deuda.monto;
+    return Fin.saldoRestanteUSD(deuda) / rate;
+  },
   deudasEnriquecidas(){
     return Store.getDeudas().map(d => {
       const moneda = d.moneda || 'ARS'; // deudas viejas, antes de agregar monedas, quedan en ARS
-      const pagado = Fin.totalPagado(d.id);
-      const saldo = Math.max(0, d.monto - pagado);
+      const deuda = { ...d, moneda };
+      const montoUSD = toUSD(d.monto, moneda);
+      const pagadoUSD = Fin.totalPagadoUSD(d.id);
+      const saldoUSD = Math.max(0, montoUSD - pagadoUSD);
       return {
-        deuda: { ...d, moneda },
-        pagado, saldo, saldada: saldo <= 0,
-        montoUSD: toUSD(d.monto, moneda),
-        pagadoUSD: toUSD(pagado, moneda),
-        saldoUSD: toUSD(saldo, moneda),
+        deuda, montoUSD, pagadoUSD, saldoUSD,
+        saldoEnMoneda: Fin.saldoRestanteEnMoneda(deuda),
+        pctPagado: montoUSD > 0 ? Math.min(100, (pagadoUSD / montoUSD) * 100) : 0,
+        saldada: saldoUSD <= 0,
       };
     }).sort((a, b) => {
       if (a.saldada !== b.saldada) return a.saldada ? 1 : -1;
@@ -354,31 +368,33 @@ function renderDeudas(){
     return;
   }
 
-  enriched.forEach(({ deuda, pagado, saldo, saldada, saldoUSD }) => {
-    const pct = deuda.monto > 0 ? Math.min(100, (pagado / deuda.monto) * 100) : 0;
-    const esUSDoARS = deuda.moneda === 'ARS' || deuda.moneda === 'USD';
+  enriched.forEach(({ deuda, saldoUSD, saldoEnMoneda, pctPagado, saldada }) => {
+    const esCripto = !['ARS', 'USD'].includes(deuda.moneda);
     const row = document.createElement('div');
     row.className = `debt-row ${saldada ? 'saldada' : ''}`;
     row.dataset.action = 'edit-debt';
     row.dataset.id = deuda.id;
     row.innerHTML = `
-      <div class="row-between" style="margin-bottom:8px;">
-        <div style="min-width:0;">
-          <p style="font-size:14px; font-weight:700; margin:0;">${escapeHtml(deuda.descripcion)}</p>
-          <p class="mono" style="font-size:10px; color:var(--text-faint); margin:2px 0 0;">${CURRENCY_META[deuda.moneda]?.label || deuda.moneda}</p>
+      <div class="row-between" style="margin-bottom:10px;">
+        <div class="row g-2" style="min-width:0;">
+          <span class="coin-badge coin-${deuda.moneda}">${CURRENCY_META[deuda.moneda]?.symbol || '?'}</span>
+          <div style="min-width:0;">
+            <p style="font-size:14px; font-weight:700; margin:0;">${escapeHtml(deuda.descripcion)}</p>
+            <p class="mono" style="font-size:10px; color:var(--text-faint); margin:2px 0 0;">${CURRENCY_META[deuda.moneda]?.label || deuda.moneda}</p>
+          </div>
         </div>
         <span class="debt-badge" style="background:${saldada ? 'var(--green-dim)' : 'var(--red-dim)'}; color:${saldada ? 'var(--green-soft)' : 'var(--red)'}">
           ${saldada ? '✓ Saldada' : 'Activa'}
         </span>
       </div>
       <div class="progress-track" style="margin-bottom:8px;">
-        <div class="progress-fill" style="width:${pct}%; background:${saldada ? 'var(--green-soft)' : 'var(--amber)'}"></div>
+        <div class="progress-fill" style="width:${pctPagado}%; background:${saldada ? 'var(--green-soft)' : 'var(--amber)'}"></div>
       </div>
       <div class="row-between">
-        <p class="mono" style="font-size:11px; color:var(--text-faint); margin:0;">Pagado ${moneyMoneda(pagado, deuda.moneda)} de ${moneyMoneda(deuda.monto, deuda.moneda)}</p>
+        <p class="mono" style="font-size:11px; color:var(--text-faint); margin:0;">${Math.round(pctPagado)}% pagado · ${moneyMoneda(deuda.monto, deuda.moneda)} original</p>
         <div style="text-align:right;">
-          <p class="mono" style="font-size:14px; font-weight:800; margin:0; color:${saldada ? 'var(--green-soft)' : 'var(--red)'}">${moneyMoneda(saldo, deuda.moneda)}</p>
-          ${!esUSDoARS ? `<p class="mono" style="font-size:10px; color:var(--text-faint); margin:2px 0 0;">≈ ${moneyUSD(saldoUSD)}</p>` : ''}
+          <p class="mono" style="font-size:14px; font-weight:800; margin:0; color:${saldada ? 'var(--green-soft)' : 'var(--red)'}">${moneyMoneda(saldoEnMoneda, deuda.moneda)}</p>
+          ${esCripto ? `<p class="mono" style="font-size:10px; color:var(--text-faint); margin:2px 0 0;">≈ ${moneyUSD(saldoUSD)}</p>` : ''}
         </div>
       </div>
     `;
@@ -387,25 +403,34 @@ function renderDeudas(){
 }
 
 function renderPaymentsList(deudaId){
-  const deuda = Store.getDeudas().find(d => d.id === deudaId);
-  const moneda = deuda?.moneda || 'ARS';
   const pagos = Fin.pagosDeDeuda(deudaId).sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
   const host = document.getElementById('paymentsList');
   if (!pagos.length) {
     host.innerHTML = `<p style="font-size:12px; color:var(--text-faint);">Todavía no registraste pagos.</p>`;
     return;
   }
-  host.innerHTML = pagos.map(p => `
+  host.innerHTML = pagos.map(p => {
+    const moneda = p.moneda || 'ARS';
+    const usdVal = toUSD(p.monto, moneda);
+    const esCripto = !['ARS', 'USD'].includes(moneda);
+    return `
     <div class="row-between" style="background:var(--surface-3); border-radius:11px; padding:9px 12px;">
-      <p class="mono" style="font-size:11px; color:var(--text-dim); margin:0;">${new Date(p.fecha + 'T12:00:00').toLocaleDateString('es-AR')}</p>
       <div class="row g-2">
-        <p class="mono" style="font-size:13px; font-weight:700; color:var(--green-soft); margin:0;">${moneyMoneda(p.monto, moneda)}</p>
-        <button data-action="delete-payment" data-id="${p.id}" data-debt="${deudaId}" style="width:22px; height:22px; border-radius:99px; background:var(--red-dim); display:flex; align-items:center; justify-content:center;">
+        <span class="coin-badge coin-${moneda} sm">${CURRENCY_META[moneda]?.symbol || '?'}</span>
+        <p class="mono" style="font-size:11px; color:var(--text-dim); margin:0;">${new Date(p.fecha + 'T12:00:00').toLocaleDateString('es-AR')}</p>
+      </div>
+      <div class="row g-2">
+        <div style="text-align:right;">
+          <p class="mono" style="font-size:13px; font-weight:700; color:var(--green-soft); margin:0;">${moneyMoneda(p.monto, moneda)}</p>
+          ${esCripto ? `<p class="mono" style="font-size:9px; color:var(--text-faint); margin:0;">≈ ${moneyUSD(usdVal)}</p>` : ''}
+        </div>
+        <button data-action="delete-payment" data-id="${p.id}" data-debt="${deudaId}" style="width:22px; height:22px; border-radius:99px; background:var(--red-dim); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="3"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function money(n){ return '$' + Math.round(Number(n) || 0).toLocaleString('es-AR'); }
@@ -548,6 +573,18 @@ document.getElementById('debtModal').addEventListener('click', (e) => {
   if (e.target.id === 'debtModal') closeDebtModal();
 });
 
+function updateDebtModalSaldo(deuda){
+  const saldoUSD = Fin.saldoRestanteUSD(deuda);
+  const saldoEnMoneda = Fin.saldoRestanteEnMoneda(deuda);
+  const montoUSD = toUSD(deuda.monto, deuda.moneda || 'ARS');
+  const pct = montoUSD > 0 ? Math.min(100, ((montoUSD - saldoUSD) / montoUSD) * 100) : 0;
+  const esCripto = !['ARS', 'USD'].includes(deuda.moneda);
+
+  document.getElementById('dSaldoRestante').textContent = moneyMoneda(saldoEnMoneda, deuda.moneda || 'ARS');
+  document.getElementById('dSaldoUSD').textContent = esCripto ? `≈ ${moneyUSD(saldoUSD)}` : '';
+  document.getElementById('dProgressFill').style.width = pct + '%';
+}
+
 function openDebtModal(id){
   document.getElementById('debtModal').style.display = 'flex';
   document.getElementById('paymentsSection').classList.toggle('hide', !id);
@@ -563,12 +600,9 @@ function openDebtModal(id){
     document.getElementById('dMoneda').value = moneda;
     document.getElementById('dFecha').value = deuda.fecha;
     document.getElementById('dPagoMonto').value = '';
+    document.getElementById('dPagoMoneda').value = moneda; // por defecto, la misma moneda de la deuda
 
-    const saldo = Fin.saldoRestante(deuda);
-    const pagado = Fin.totalPagado(deuda.id);
-    const pct = deuda.monto > 0 ? Math.min(100, (pagado / deuda.monto) * 100) : 0;
-    document.getElementById('dSaldoRestante').textContent = moneyMoneda(saldo, moneda);
-    document.getElementById('dProgressFill').style.width = pct + '%';
+    updateDebtModalSaldo({ ...deuda, moneda });
     renderPaymentsList(id);
   } else {
     document.getElementById('debtModalTitle').textContent = 'Nueva deuda';
@@ -636,21 +670,18 @@ async function deleteDebt(){
 async function addPayment(){
   const deudaId = document.getElementById('dId').value;
   const monto = Number(document.getElementById('dPagoMonto').value);
+  const moneda = document.getElementById('dPagoMoneda').value;
   if (!monto || monto <= 0) return toast('Ingresá un monto de pago válido', 'error');
 
   try {
     const pagos = Store.getPagos();
-    pagos.push({ id: uid(), deudaId, monto, fecha: today() });
+    pagos.push({ id: uid(), deudaId, monto, moneda, fecha: today() });
     await Store.setPagos(pagos);
     document.getElementById('dPagoMonto').value = '';
     toast('Pago registrado');
 
     const deuda = Store.getDeudas().find(d => d.id === deudaId);
-    const saldo = Fin.saldoRestante(deuda);
-    const pagado = Fin.totalPagado(deudaId);
-    const pct = deuda.monto > 0 ? Math.min(100, (pagado / deuda.monto) * 100) : 0;
-    document.getElementById('dSaldoRestante').textContent = moneyMoneda(saldo, deuda.moneda || 'ARS');
-    document.getElementById('dProgressFill').style.width = pct + '%';
+    updateDebtModalSaldo(deuda);
     renderPaymentsList(deudaId);
     renderDeudas();
     renderFinSummary();
@@ -666,11 +697,7 @@ async function deletePayment(id, deudaId){
     toast('Pago eliminado');
 
     const deuda = Store.getDeudas().find(d => d.id === deudaId);
-    const saldo = Fin.saldoRestante(deuda);
-    const pagado = Fin.totalPagado(deudaId);
-    const pct = deuda.monto > 0 ? Math.min(100, (pagado / deuda.monto) * 100) : 0;
-    document.getElementById('dSaldoRestante').textContent = moneyMoneda(saldo, deuda.moneda || 'ARS');
-    document.getElementById('dProgressFill').style.width = pct + '%';
+    updateDebtModalSaldo(deuda);
     renderPaymentsList(deudaId);
     renderDeudas();
     renderFinSummary();
