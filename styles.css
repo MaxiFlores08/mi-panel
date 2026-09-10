@@ -192,6 +192,10 @@ input{ font-family:inherit; }
 .coin-badge.coin-MATIC{ background:linear-gradient(160deg,#A879F0,#8247E5); }
 .coin-badge.coin-BNB{ background:linear-gradient(160deg,#FCD34D,#F0B90B); color:#3a2f05; font-size:9px; }
 
+.coin-icon-wrap{ display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:50%; background:var(--surface-3); flex-shrink:0; overflow:hidden; }
+.coin-icon-wrap.sm{ width:24px; height:24px; }
+.coin-icon-wrap img{ border-radius:50%; }
+
 .gradient-num{ background:linear-gradient(135deg,#fff,var(--text-dim)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
 
 .debt-badge{ font-size:10px; font-weight:800; border-radius:999px; padding:3px 9px; }
