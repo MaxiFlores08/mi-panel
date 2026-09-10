@@ -116,12 +116,30 @@ const today = () => new Date().toISOString().slice(0, 10);
 const CURRENCY_META = {
   ARS:   { label:'Peso Argentino', symbol:'$' },
   USD:   { label:'Dólar', symbol:'US$' },
-  BTC:   { label:'Bitcoin', symbol:'₿', cgId:'bitcoin' },
-  DOGE:  { label:'Dogecoin', symbol:'Ð', cgId:'dogecoin' },
-  SOL:   { label:'Solana', symbol:'◎', cgId:'solana' },
-  MATIC: { label:'Polygon', symbol:'⬡', cgId:'matic-network' },
-  BNB:   { label:'BNB', symbol:'BNB', cgId:'binancecoin' },
+  BTC:   { label:'Bitcoin', symbol:'₿', cgId:'bitcoin', logo:'bitcoin/F7931A' },
+  DOGE:  { label:'Dogecoin', symbol:'Ð', cgId:'dogecoin', logo:'dogecoin/C2A633' },
+  SOL:   { label:'Solana', symbol:'◎', cgId:'solana', logo:'solana/9945FF' },
+  MATIC: { label:'Polygon', symbol:'⬡', cgId:'matic-network', logo:'polygon/8247E5' },
+  BNB:   { label:'BNB', symbol:'BNB', cgId:'binancecoin', logo:'binance/F0B90B' },
 };
+
+// Devuelve el HTML del ícono: logo real si existe, si no el badge de color como respaldo.
+function coinIconHtml(moneda, size = 'md'){
+  const meta = CURRENCY_META[moneda] || {};
+  const cls = size === 'sm' ? 'coin-badge sm' : 'coin-badge';
+  const fallback = `<span class="${cls} coin-${moneda}" style="display:none;">${meta.symbol || '?'}</span>`;
+  if (!meta.logo) {
+    // ARS / USD: no tienen "logo" de marca, mostramos el badge directamente
+    return `<span class="${cls} coin-${moneda}">${meta.symbol || '?'}</span>`;
+  }
+  const px = size === 'sm' ? 24 : 34;
+  return `
+    <span class="coin-icon-wrap ${cls === 'coin-badge sm' ? 'sm' : ''}">
+      <img src="https://cdn.simpleicons.org/${meta.logo}" width="${px}" height="${px}" alt="${meta.label}"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+      ${fallback}
+    </span>`;
+}
 
 let Rates = { ARS:0, USD:1, BTC:0, DOGE:0, SOL:0, MATIC:0, BNB:0 }; // USD por 1 unidad de cada moneda
 let ratesLoadedAt = null;
@@ -377,7 +395,7 @@ function renderDeudas(){
     row.innerHTML = `
       <div class="row-between" style="margin-bottom:10px;">
         <div class="row g-2" style="min-width:0;">
-          <span class="coin-badge coin-${deuda.moneda}">${CURRENCY_META[deuda.moneda]?.symbol || '?'}</span>
+          ${coinIconHtml(deuda.moneda)}
           <div style="min-width:0;">
             <p style="font-size:14px; font-weight:700; margin:0;">${escapeHtml(deuda.descripcion)}</p>
             <p class="mono" style="font-size:10px; color:var(--text-faint); margin:2px 0 0;">${CURRENCY_META[deuda.moneda]?.label || deuda.moneda}</p>
@@ -416,7 +434,7 @@ function renderPaymentsList(deudaId){
     return `
     <div class="row-between" style="background:var(--surface-3); border-radius:11px; padding:9px 12px;">
       <div class="row g-2">
-        <span class="coin-badge coin-${moneda} sm">${CURRENCY_META[moneda]?.symbol || '?'}</span>
+        ${coinIconHtml(moneda, 'sm')}
         <p class="mono" style="font-size:11px; color:var(--text-dim); margin:0;">${new Date(p.fecha + 'T12:00:00').toLocaleDateString('es-AR')}</p>
       </div>
       <div class="row g-2">
