@@ -97,7 +97,20 @@ const Store = (() => {
   async function setDeudas(v){ await set('deudas', v); }
   function getPagos(){ return cache.pagos || []; }
   async function setPagos(v){ await set('pagos', v); }
-  function getWalletsFin(){ return cache.walletsFin || { efectivo:0, virtual:0 }; }
+  function getWalletsFin(){
+    const raw = cache.walletsFin;
+    if (Array.isArray(raw)) return raw;
+    // Migración: formato viejo era {efectivo, virtual} — lo convertimos a lista, una sola vez.
+    if (raw && typeof raw === 'object') {
+      const migrated = [
+        { id: uid(), nombre:'Efectivo', monto: raw.efectivo || 0, moneda:'ARS' },
+        { id: uid(), nombre:'Virtual', monto: raw.virtual || 0, moneda:'ARS' },
+      ];
+      setWalletsFin(migrated); // se guarda en segundo plano
+      return migrated;
+    }
+    return [];
+  }
   async function setWalletsFin(v){ await set('walletsFin', v); }
 
   return {
@@ -121,7 +134,9 @@ const CURRENCY_META = {
   SOL:   { label:'Solana', symbol:'◎', cgId:'solana', logo:'solana/9945FF' },
   MATIC: { label:'Polygon', symbol:'⬡', cgId:'matic-network', logo:'polygon/8247E5' },
   BNB:   { label:'BNB', symbol:'BNB', cgId:'binancecoin', logo:'binance/F0B90B' },
+  LTC:   { label:'Litecoin', symbol:'Ł', cgId:'litecoin', logo:'litecoin/345D9D' },
 };
+const TICKER_CURRENCIES = ['BNB', 'MATIC', 'SOL', 'BTC', 'DOGE', 'LTC'];
 
 // Devuelve el HTML del ícono: logo real si existe, si no el badge de color como respaldo.
 function coinIconHtml(moneda, size = 'md'){
@@ -141,7 +156,8 @@ function coinIconHtml(moneda, size = 'md'){
     </span>`;
 }
 
-let Rates = { ARS:0, USD:1, BTC:0, DOGE:0, SOL:0, MATIC:0, BNB:0 }; // USD por 1 unidad de cada moneda
+let Rates = { ARS:0, USD:1, BTC:0, DOGE:0, SOL:0, MATIC:0, BNB:0, LTC:0 }; // USD por 1 unidad de cada moneda
+let Change24h = {}; // % de variación en 24hs, solo cripto
 let ratesLoadedAt = null;
 
 async function fetchRates(){
@@ -149,16 +165,19 @@ async function fetchRates(){
   try {
     const [dolarRes, cryptoRes] = await Promise.all([
       fetch('https://dolarapi.com/v1/dolares/blue'),
-      fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgIds}&vs_currencies=usd`),
+      fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgIds}&vs_currencies=usd&include_24hr_change=true`),
     ]);
     if (!dolarRes.ok || !cryptoRes.ok) throw new Error('rates fetch failed');
     const dolar = await dolarRes.json();   // { compra, venta, ... }
-    const crypto = await cryptoRes.json(); // { bitcoin:{usd:...}, ... }
+    const crypto = await cryptoRes.json(); // { bitcoin:{usd:..., usd_24h_change:...}, ... }
 
     Rates.ARS = 1 / dolar.venta;
     Rates.USD = 1;
     for (const [code, meta] of Object.entries(CURRENCY_META)) {
-      if (meta.cgId && crypto[meta.cgId]) Rates[code] = crypto[meta.cgId].usd;
+      if (meta.cgId && crypto[meta.cgId]) {
+        Rates[code] = crypto[meta.cgId].usd;
+        Change24h[code] = crypto[meta.cgId].usd_24h_change;
+      }
     }
     ratesLoadedAt = new Date();
     return true;
@@ -170,6 +189,10 @@ async function fetchRates(){
 
 function toUSD(monto, moneda){
   return (Rates[moneda] || 0) * monto;
+}
+function toARS(monto, moneda){
+  const usd = toUSD(monto, moneda);
+  return Rates.ARS ? usd / Rates.ARS : 0;
 }
 
 /* =========================================================
@@ -352,14 +375,12 @@ function renderTimeline(){
 }
 
 function renderFinSummary(){
-  const w = Store.getWalletsFin();
-  const disponibleARS = w.efectivo + w.virtual;
-  const disponibleUSD = toUSD(disponibleARS, 'ARS');
+  const wallets = Store.getWalletsFin();
+  const disponibleUSD = wallets.reduce((s, w) => s + toUSD(w.monto, w.moneda || 'ARS'), 0);
   const adeudadoUSD = Fin.totalAdeudado();
   const diferenciaUSD = disponibleUSD - adeudadoUSD;
 
-  document.getElementById('saldoEfectivo').textContent = money(w.efectivo);
-  document.getElementById('saldoVirtual').textContent = money(w.virtual);
+  document.getElementById('finTotalDisponible').textContent = moneyUSD(disponibleUSD);
   document.getElementById('finTotalAdeudado').textContent = moneyUSD(adeudadoUSD);
   const difEl = document.getElementById('finDiferencia');
   difEl.textContent = moneyUSD(diferenciaUSD);
@@ -371,6 +392,66 @@ function renderFinSummary(){
       ? 'actualizado ' + ratesLoadedAt.toLocaleTimeString('es-AR', { hour:'2-digit', minute:'2-digit' })
       : 'cotizaciones';
   }
+}
+
+function renderWallets(){
+  const wallets = Store.getWalletsFin();
+  const host = document.getElementById('walletsList');
+  if (!host) return;
+
+  if (!wallets.length) {
+    host.innerHTML = `<p style="font-size:12px; color:var(--text-faint); text-align:center; padding:12px 0;">No tenés cuentas cargadas todavía.</p>`;
+    return;
+  }
+
+  host.innerHTML = wallets.map(w => {
+    const moneda = w.moneda || 'ARS';
+    const usdVal = toUSD(w.monto, moneda);
+    const esCripto = !['ARS', 'USD'].includes(moneda);
+    return `
+    <div class="debt-row" data-action="edit-wallet" data-id="${w.id}" style="margin-bottom:8px; padding:12px;">
+      <div class="row-between">
+        <div class="row g-2" style="min-width:0;">
+          ${coinIconHtml(moneda, 'sm')}
+          <p style="font-size:13px; font-weight:700; margin:0;">${escapeHtml(w.nombre)}</p>
+        </div>
+        <div style="text-align:right;">
+          <p class="mono" style="font-size:13px; font-weight:800; margin:0; color:var(--green-soft);">${moneyMoneda(w.monto, moneda)}</p>
+          ${esCripto ? `<p class="mono" style="font-size:9px; color:var(--text-faint); margin:0;">≈ ${moneyUSD(usdVal)}</p>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTicker(){
+  const host = document.getElementById('tickerList');
+  if (!host) return;
+
+  host.innerHTML = TICKER_CURRENCIES.map(code => {
+    const price = Rates[code] || 0;
+    const change = Change24h[code];
+    const up = change >= 0;
+    const changeTxt = (change === undefined || change === null) ? '—' : `${up ? '▲' : '▼'} ${Math.abs(change).toFixed(1)}%`;
+    return `
+    <div class="row-between" style="padding:8px 10px; background:var(--surface-2); border-radius:12px;">
+      <div class="row g-2">
+        ${coinIconHtml(code, 'sm')}
+        <p style="font-size:12px; font-weight:700; margin:0;">${code}</p>
+      </div>
+      <div style="text-align:right;">
+        <p class="mono" style="font-size:12px; font-weight:800; margin:0;">${moneyUSD(price)}</p>
+        <p class="mono" style="font-size:10px; margin:0; color:${up ? 'var(--green-soft)' : 'var(--red)'}">${changeTxt}</p>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCalculator(){
+  const monto = Number(document.getElementById('calcMonto')?.value) || 0;
+  const moneda = document.getElementById('calcMoneda')?.value || 'BNB';
+  document.getElementById('calcUSD').textContent = moneyUSD(toUSD(monto, moneda));
+  document.getElementById('calcARS').textContent = money(toARS(monto, moneda));
 }
 
 function renderDeudas(){
@@ -472,6 +553,9 @@ function renderAll(){
   renderTimeline();
   renderFinSummary();
   renderDeudas();
+  renderWallets();
+  renderTicker();
+  renderCalculator();
 }
 
 function escapeHtml(str){
@@ -553,28 +637,22 @@ document.addEventListener('click', async (e) => {
     switchView(actionEl.dataset.view);
   }
 
-  if (action === 'edit-wallet') {
-    const tipo = actionEl.dataset.tipo;
-    const w = Store.getWalletsFin();
-    const label = tipo === 'efectivo' ? 'efectivo físico' : 'billetera virtual';
-    const val = prompt(`Saldo disponible en ${label} ($):`, w[tipo]);
-    if (val === null) return;
-    const num = Number(val);
-    if (isNaN(num) || num < 0) return toast('Ingresá un monto válido', 'error');
-    try {
-      await Store.setWalletsFin({ ...w, [tipo]: num });
-      renderFinSummary();
-      toast('Saldo actualizado');
-    } catch (err) { toast('No se pudo guardar. Revisá tu conexión.', 'error'); }
-  }
+  if (action === 'new-wallet') openWalletModal();
+  if (action === 'edit-wallet') openWalletModal(actionEl.dataset.id);
+  if (action === 'close-wallet') closeWalletModal();
+  if (action === 'save-wallet') await saveWallet();
+  if (action === 'delete-wallet') await deleteWallet();
 
   if (action === 'refresh-rates') {
-    const icon = document.getElementById('ratesIcon');
-    icon.classList.add('spin');
+    const icons = document.querySelectorAll('#ratesIcon, #tickerRefreshIcon');
+    icons.forEach(i => i.classList.add('spin'));
     const ok = await fetchRates();
-    icon.classList.remove('spin');
+    icons.forEach(i => i.classList.remove('spin'));
     renderFinSummary();
     renderDeudas();
+    renderWallets();
+    renderTicker();
+    renderCalculator();
     toast(ok ? 'Cotizaciones actualizadas' : 'No se pudieron obtener las cotizaciones', ok ? 'ok' : 'error');
   }
 
@@ -590,6 +668,79 @@ document.addEventListener('click', async (e) => {
 document.getElementById('debtModal').addEventListener('click', (e) => {
   if (e.target.id === 'debtModal') closeDebtModal();
 });
+
+document.getElementById('walletModal').addEventListener('click', (e) => {
+  if (e.target.id === 'walletModal') closeWalletModal();
+});
+
+function openWalletModal(id){
+  document.getElementById('walletModal').style.display = 'flex';
+  document.getElementById('wDeleteBtn').classList.toggle('hide', !id);
+
+  if (id) {
+    const w = Store.getWalletsFin().find(x => x.id === id);
+    document.getElementById('walletModalTitle').textContent = 'Editar cuenta';
+    document.getElementById('wId').value = w.id;
+    document.getElementById('wNombre').value = w.nombre;
+    document.getElementById('wMonto').value = w.monto;
+    document.getElementById('wMoneda').value = w.moneda || 'ARS';
+  } else {
+    document.getElementById('walletModalTitle').textContent = 'Nueva cuenta';
+    document.getElementById('wId').value = '';
+    document.getElementById('wNombre').value = '';
+    document.getElementById('wMonto').value = '';
+    document.getElementById('wMoneda').value = 'ARS';
+  }
+}
+
+function closeWalletModal(){
+  document.getElementById('walletModal').style.display = 'none';
+}
+
+async function saveWallet(){
+  const id = document.getElementById('wId').value;
+  const nombre = document.getElementById('wNombre').value.trim();
+  const monto = Number(document.getElementById('wMonto').value);
+  const moneda = document.getElementById('wMoneda').value;
+
+  if (!nombre) return toast('Ponele un nombre a la cuenta', 'error');
+  if (isNaN(monto) || monto < 0) return toast('Ingresá un monto válido', 'error');
+
+  const btn = document.getElementById('btnSaveWallet');
+  btn.disabled = true;
+  try {
+    const wallets = Store.getWalletsFin();
+    if (id) {
+      await Store.setWalletsFin(wallets.map(w => w.id === id ? { id, nombre, monto, moneda } : w));
+      toast('Cuenta actualizada');
+    } else {
+      wallets.push({ id: uid(), nombre, monto, moneda });
+      await Store.setWalletsFin(wallets);
+      toast('Cuenta agregada');
+    }
+    closeWalletModal();
+    renderWallets();
+    renderFinSummary();
+  } catch (err) {
+    toast('No se pudo guardar. Revisá tu conexión.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteWallet(){
+  const id = document.getElementById('wId').value;
+  if (!id || !confirm('¿Eliminar esta cuenta?')) return;
+  try {
+    await Store.setWalletsFin(Store.getWalletsFin().filter(w => w.id !== id));
+    closeWalletModal();
+    renderWallets();
+    renderFinSummary();
+    toast('Cuenta eliminada');
+  } catch (err) {
+    toast('No se pudo eliminar. Revisá tu conexión.', 'error');
+  }
+}
 
 function updateDebtModalSaldo(deuda){
   const saldoUSD = Fin.saldoRestanteUSD(deuda);
@@ -739,6 +890,9 @@ document.addEventListener('input', (e) => {
   }, 500);
 });
 
+document.getElementById('calcMonto')?.addEventListener('input', renderCalculator);
+document.getElementById('calcMoneda')?.addEventListener('change', renderCalculator);
+
 /* =========================================================
    5. INIT
    ========================================================= */
@@ -751,5 +905,17 @@ async function init(){
   }
   setSyncing(false);
   renderAll();
+
+  // Cotizaciones en vivo: se refrescan solas cada 60 segundos, sin interrumpir al usuario.
+  setInterval(async () => {
+    const ok = await fetchRates();
+    if (ok) {
+      renderFinSummary();
+      renderDeudas();
+      renderWallets();
+      renderTicker();
+      renderCalculator();
+    }
+  }, 60000);
 }
 init();
