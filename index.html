@@ -81,17 +81,10 @@
                 <span id="ratesUpdated">cotizaciones</span>
               </button>
             </div>
-            <div class="fin-summary">
-              <div class="fin-tile" data-action="edit-wallet" data-tipo="efectivo">
-                <p style="font-size:10px; font-weight:700; color:var(--text-faint); margin:0;">💵 EFECTIVO</p>
-                <p id="saldoEfectivo" class="mono" style="font-size:17px; font-weight:800; margin:6px 0 0; color:var(--green-soft);">$0</p>
-              </div>
-              <div class="fin-tile" data-action="edit-wallet" data-tipo="virtual">
-                <p style="font-size:10px; font-weight:700; color:var(--text-faint); margin:0;">📲 VIRTUAL</p>
-                <p id="saldoVirtual" class="mono" style="font-size:17px; font-weight:800; margin:6px 0 0; color:var(--green-soft);">$0</p>
-              </div>
+            <div class="row-between" style="margin-bottom:8px;">
+              <p style="font-size:12px; color:var(--text-dim); margin:0;">Total disponible (USD)</p>
+              <p id="finTotalDisponible" class="mono" style="font-size:15px; font-weight:800; color:var(--green-soft); margin:0;">$0</p>
             </div>
-            <div class="divider" style="margin:14px 0;"></div>
             <div class="row-between" style="margin-bottom:8px;">
               <p style="font-size:12px; color:var(--text-dim); margin:0;">Total adeudado (USD)</p>
               <p id="finTotalAdeudado" class="mono" style="font-size:15px; font-weight:800; color:var(--red); margin:0;">$0</p>
@@ -100,6 +93,17 @@
               <p style="font-size:12px; color:var(--text-dim); margin:0;">Diferencia (USD)</p>
               <p id="finDiferencia" class="mono" style="font-size:15px; font-weight:800; margin:0;">$0</p>
             </div>
+          </section>
+
+          <section class="card card-accent stagger" style="--accent:var(--green-soft); padding:16px;">
+            <div class="row-between" style="margin-bottom:10px;">
+              <p class="section-label">Tus cuentas / billeteras</p>
+            </div>
+            <button data-action="new-wallet" class="btn btn-ghost2" style="width:100%; margin-bottom:12px; border-color:var(--green-soft); color:var(--green-soft);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--green-soft)" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+              Agregar cuenta
+            </button>
+            <div id="walletsList"></div>
           </section>
 
           <section class="card card-accent stagger" style="--accent:var(--amber); padding:16px;">
@@ -139,6 +143,40 @@
             <span class="ic">🔌</span> Accesorios <span class="arrow">↗</span>
           </a>
         </div>
+
+        <div class="card stagger hoverable" style="padding:16px;">
+          <div class="row-between" style="margin-bottom:2px;">
+            <p class="side-widget-title" style="margin-bottom:0;">💹 Cotizaciones</p>
+            <button data-action="refresh-rates" style="display:flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:99px; background:var(--surface-3);">
+              <svg id="tickerRefreshIcon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5"><path d="M21 12a9 9 0 1 1-2.6-6.35M21 3v6h-6"/></svg>
+            </button>
+          </div>
+          <p class="side-widget-sub">Se actualiza solo cada 1 minuto.</p>
+          <div id="tickerList" class="col g-2"></div>
+
+          <div class="divider" style="margin:16px 0;"></div>
+
+          <p class="section-label" style="margin-bottom:8px;">Calculadora rápida</p>
+          <div class="row g-2" style="margin-bottom:10px;">
+            <input id="calcMonto" type="number" inputmode="numeric" placeholder="Cantidad" class="field mono flex-1" value="1">
+            <select id="calcMoneda" class="field mono" style="width:auto; flex-shrink:0;">
+              <option value="BNB">BNB</option>
+              <option value="MATIC">MATIC</option>
+              <option value="SOL">SOL</option>
+              <option value="BTC">BTC</option>
+              <option value="DOGE">DOGE</option>
+              <option value="LTC">LTC</option>
+            </select>
+          </div>
+          <div class="row-between" style="padding:10px 12px; background:var(--surface-2); border-radius:11px; margin-bottom:6px;">
+            <span style="font-size:11px; color:var(--text-faint);">≈ Dólares</span>
+            <span id="calcUSD" class="mono" style="font-size:13px; font-weight:800;">US$0</span>
+          </div>
+          <div class="row-between" style="padding:10px 12px; background:var(--surface-2); border-radius:11px;">
+            <span style="font-size:11px; color:var(--text-faint);">≈ Pesos ARS</span>
+            <span id="calcARS" class="mono" style="font-size:13px; font-weight:800;">$0</span>
+          </div>
+        </div>
       </aside>
     </div>
 
@@ -147,6 +185,46 @@
 
 <!-- FAB: nueva deuda (solo visible en la vista Deudas) -->
 <button id="fabNuevaDeuda" class="fab hide" data-action="new-debt" title="Nueva deuda">+</button>
+
+<!-- Modal: billetera -->
+<div id="walletModal" class="modal-overlay">
+  <div class="modal-sheet card" style="max-width:420px;">
+    <div class="sheet-handle"></div>
+    <p id="walletModalTitle" style="font-size:17px; font-weight:800; margin:0 0 18px;">Nueva cuenta</p>
+    <input type="hidden" id="wId">
+    <div class="col g-3">
+      <div>
+        <label style="display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Nombre</label>
+        <input id="wNombre" type="text" placeholder="Ej: Brubank, Kript, Efectivo" class="field">
+      </div>
+      <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div>
+          <label style="display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Monto</label>
+          <input id="wMonto" type="number" inputmode="numeric" placeholder="0" class="field mono">
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Moneda</label>
+          <select id="wMoneda" class="field mono">
+            <option value="ARS">$ ARS</option>
+            <option value="USD">US$ USD</option>
+            <option value="BTC">₿ BTC</option>
+            <option value="DOGE">Ð DOGE</option>
+            <option value="SOL">◎ SOL</option>
+            <option value="MATIC">⬡ MATIC</option>
+            <option value="BNB">BNB</option>
+            <option value="LTC">Ł LTC</option>
+            <option value="LTC">Ł LTC</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="row g-2" style="margin-top:20px;">
+      <button data-action="close-wallet" class="btn btn-ghost2 flex-1">Cancelar</button>
+      <button id="btnSaveWallet" data-action="save-wallet" class="btn btn-fin flex-1" style="background:linear-gradient(180deg,#6EE7B7,var(--green-soft)); color:#04140D;">Guardar</button>
+    </div>
+    <button id="wDeleteBtn" data-action="delete-wallet" class="hide" style="width:100%; margin-top:16px; text-align:center; font-size:12px; font-weight:700; color:var(--red); background:none;">Eliminar cuenta</button>
+  </div>
+</div>
 
 <!-- Modal: deuda -->
 <div id="debtModal" class="modal-overlay">
@@ -174,6 +252,7 @@
             <option value="SOL">◎ Solana</option>
             <option value="MATIC">⬡ Polygon</option>
             <option value="BNB">BNB</option>
+            <option value="LTC">Ł LTC</option>
           </select>
         </div>
       </div>
@@ -211,6 +290,7 @@
           <option value="SOL">◎ SOL</option>
           <option value="MATIC">⬡ MATIC</option>
           <option value="BNB">BNB</option>
+            <option value="LTC">Ł LTC</option>
         </select>
         <button data-action="add-payment" class="btn btn-fin" style="width:auto; padding:13px 18px; flex-shrink:0;">Pagar</button>
       </div>
