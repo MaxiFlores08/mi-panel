@@ -1,50 +1,64 @@
 'use strict';
 
 /* =========================================================
-   1. DATOS BASE — rutina fija de la semana
+   1. DATOS BASE — semilla inicial de la rutina (editable luego desde la app)
    ========================================================= */
 const DIAS = ['lunes','martes','miercoles','jueves','viernes','sabado','domingo'];
 const DIAS_LABEL = { lunes:'Lun', martes:'Mar', miercoles:'Mié', jueves:'Jue', viernes:'Vie', sabado:'Sáb', domingo:'Dom' };
 const DIAS_LARGO = { lunes:'lunes', martes:'martes', miercoles:'miércoles', jueves:'jueves', viernes:'viernes', sabado:'sábado', domingo:'domingo' };
 
-// type: 'negocio' | 'cursada' | 'estudio' | 'viaje'
-const RUTINA = {
-  lunes: [
-    { hora:'15:00 – 16:00', label:'Viaje a la facultad', type:'viaje', icon:'🚌' },
-    { hora:'16:00 – 22:00', label:'Cursada', type:'cursada', icon:'🎓' },
-  ],
-  martes: [
-    { hora:'08:30 – 13:00', label:'Negocio (turno mañana)', type:'negocio', icon:'🏠' },
-    { hora:'13:00 – 17:00', label:'Entrenamiento / Estudio', type:'estudio', icon:'💻' },
-    { hora:'17:00 – 20:30', label:'Negocio (turno tarde)', type:'negocio', icon:'🏠' },
-  ],
-  miercoles: [
-    { hora:'08:30 – 13:00', label:'Negocio (turno mañana)', type:'negocio', icon:'🏠' },
-    { hora:'17:00 – 22:00', label:'Cursada', type:'cursada', icon:'🎓' },
-  ],
-  jueves: [
-    { hora:'08:30 – 13:00', label:'Negocio (turno mañana)', type:'negocio', icon:'🏠' },
-    { hora:'17:00 – 22:00', label:'Cursada', type:'cursada', icon:'🎓' },
-  ],
-  viernes: [
-    { hora:'08:30 – 13:00', label:'Negocio (turno mañana)', type:'negocio', icon:'🏠' },
-    { hora:'13:00 – 17:00', label:'Entrenamiento / Estudio', type:'estudio', icon:'💻' },
-    { hora:'17:00 – 20:30', label:'Negocio (turno tarde)', type:'negocio', icon:'🏠' },
-  ],
-  sabado: [],
-  domingo: [],
+const TIPO_META = {
+  negocio:      { label:'Negocio',      color:'var(--green-soft)', icon:'🏠' },
+  cursada:      { label:'Cursada',      color:'var(--violet-soft)', icon:'🎓' },
+  estudio:      { label:'Estudio',      color:'var(--cyan)', icon:'💻' },
+  viaje:        { label:'Viaje',        color:'var(--amber)', icon:'🚌' },
+  personalizado:{ label:'Personalizado',color:'#F472B6', icon:'✨' },
 };
 
-const TYPE_COLOR = {
-  negocio:'var(--green-soft)', cursada:'var(--violet-soft)', estudio:'var(--cyan)', viaje:'var(--amber)',
-};
-
-// Qué tipos de bloque resalta cada modo de contexto
+// Qué tipos de bloque resalta cada modo de contexto (personalizado nunca se atenúa)
 const CONTEXT_HIGHLIGHT = {
   local:   ['negocio'],
   cursada: ['cursada','viaje'],
   estudio: ['estudio'],
 };
+
+// Semilla inicial: solo se usa la primera vez, después vive en Turso y es 100% editable.
+const RUTINA_SEED = [
+  { dia:'lunes', horaInicio:'15:00', horaFin:'16:00', titulo:'Viaje a la facultad', tipo:'viaje' },
+  { dia:'lunes', horaInicio:'16:00', horaFin:'22:00', titulo:'Cursada', tipo:'cursada' },
+  { dia:'martes', horaInicio:'08:30', horaFin:'13:00', titulo:'Negocio (turno mañana)', tipo:'negocio' },
+  { dia:'martes', horaInicio:'13:00', horaFin:'17:00', titulo:'Entrenamiento / Estudio', tipo:'estudio' },
+  { dia:'martes', horaInicio:'17:00', horaFin:'20:30', titulo:'Negocio (turno tarde)', tipo:'negocio' },
+  { dia:'miercoles', horaInicio:'08:30', horaFin:'13:00', titulo:'Negocio (turno mañana)', tipo:'negocio' },
+  { dia:'miercoles', horaInicio:'17:00', horaFin:'22:00', titulo:'Cursada', tipo:'cursada' },
+  { dia:'jueves', horaInicio:'08:30', horaFin:'13:00', titulo:'Negocio (turno mañana)', tipo:'negocio' },
+  { dia:'jueves', horaInicio:'17:00', horaFin:'22:00', titulo:'Cursada', tipo:'cursada' },
+  { dia:'viernes', horaInicio:'08:30', horaFin:'13:00', titulo:'Negocio (turno mañana)', tipo:'negocio' },
+  { dia:'viernes', horaInicio:'13:00', horaFin:'17:00', titulo:'Entrenamiento / Estudio', tipo:'estudio' },
+  { dia:'viernes', horaInicio:'17:00', horaFin:'20:30', titulo:'Negocio (turno tarde)', tipo:'negocio' },
+];
+
+/* =========================================================
+   1b. FECHAS DE LA SEMANA ACTUAL — para mostrar el día real en cada pestaña
+   ========================================================= */
+function fechasDeLaSemana(){
+  const hoy = new Date();
+  const diaSemanaISO = hoy.getDay() === 0 ? 7 : hoy.getDay(); // lunes=1 ... domingo=7
+  const lunes = new Date(hoy);
+  lunes.setDate(hoy.getDate() - (diaSemanaISO - 1));
+
+  const fechas = {};
+  DIAS.forEach((dia, i) => {
+    const d = new Date(lunes);
+    d.setDate(lunes.getDate() + i);
+    fechas[dia] = d;
+  });
+  return fechas;
+}
+function esHoy(date){
+  const hoy = new Date();
+  return date.toDateString() === hoy.toDateString();
+}
 
 /* =========================================================
    2. STORE — habla con /api/data (Turso) vía clave-valor genérico,
@@ -113,9 +127,19 @@ const Store = (() => {
   }
   async function setWalletsFin(v){ await set('walletsFin', v); }
 
+  function getRutina(){
+    const raw = cache.rutinaBloques;
+    if (Array.isArray(raw)) return raw;
+    // Primera vez: sembramos la rutina fija que ya tenías, con ids reales, editable de acá en más.
+    const seeded = RUTINA_SEED.map(b => ({ id: uid(), ...b }));
+    setRutina(seeded);
+    return seeded;
+  }
+  async function setRutina(v){ await set('rutinaBloques', v); }
+
   return {
     refresh, getFocusHoy, setFocusHoy, getContext, setContext, getDiaSeleccionado, setDiaSeleccionado,
-    getDeudas, setDeudas, getPagos, setPagos, getWalletsFin, setWalletsFin,
+    getDeudas, setDeudas, getPagos, setPagos, getWalletsFin, setWalletsFin, getRutina, setRutina,
   };
 })();
 
@@ -336,14 +360,16 @@ function renderHabitos(){
 
 function renderDayTabs(){
   const activo = Store.getDiaSeleccionado();
+  const fechas = fechasDeLaSemana();
   const host = document.getElementById('dayTabs');
   host.innerHTML = '';
   DIAS.forEach(dia => {
+    const fecha = fechas[dia];
     const btn = document.createElement('button');
     btn.className = `day-tab ${dia === activo ? 'active' : ''}`;
     btn.dataset.action = 'select-day';
     btn.dataset.dia = dia;
-    btn.textContent = DIAS_LABEL[dia];
+    btn.innerHTML = `${DIAS_LABEL[dia]} <span class="mono" style="opacity:.7;">${fecha.getDate()}</span>${esHoy(fecha) ? '<span class="today-dot"></span>' : ''}`;
     host.appendChild(btn);
   });
 }
@@ -352,23 +378,29 @@ function renderTimeline(){
   const dia = Store.getDiaSeleccionado();
   const context = Store.getContext();
   const highlight = CONTEXT_HIGHLIGHT[context] || [];
-  const bloques = RUTINA[dia] || [];
+  const bloques = Store.getRutina()
+    .filter(b => b.dia === dia)
+    .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
   const host = document.getElementById('timelineHost');
   host.innerHTML = '';
 
   if (!bloques.length) {
-    host.innerHTML = `<p class="tl-empty">Día libre — sin bloques cargados para el ${DIAS_LARGO[dia]}.</p>`;
+    host.innerHTML = `<p class="tl-empty">Nada cargado para el ${DIAS_LARGO[dia]} todavía. Tocá "+ Agregar bloque" para anotar algo.</p>`;
     return;
   }
 
   bloques.forEach(b => {
-    const dim = highlight.length && !highlight.includes(b.type);
+    const meta = TIPO_META[b.tipo] || TIPO_META.personalizado;
+    const dim = highlight.length && b.tipo !== 'personalizado' && !highlight.includes(b.tipo);
     const item = document.createElement('div');
     item.className = `tl-item ${dim ? 'dim' : ''}`;
+    item.dataset.action = 'edit-rutina';
+    item.dataset.id = b.id;
+    item.style.cursor = 'pointer';
     item.innerHTML = `
-      <div class="tl-dot" style="background:${TYPE_COLOR[b.type]}"></div>
-      <p class="tl-time mono" style="color:${TYPE_COLOR[b.type]}">${b.hora}</p>
-      <p class="tl-label">${b.icon} ${b.label}</p>
+      <div class="tl-dot" style="background:${meta.color}"></div>
+      <p class="tl-time mono" style="color:${meta.color}">${b.horaInicio} – ${b.horaFin}</p>
+      <p class="tl-label">${meta.icon} ${escapeHtml(b.titulo)}</p>
     `;
     host.appendChild(item);
   });
@@ -633,6 +665,12 @@ document.addEventListener('click', async (e) => {
     renderTimeline();
   }
 
+  if (action === 'new-rutina') openRutinaModal();
+  if (action === 'edit-rutina') openRutinaModal(actionEl.dataset.id);
+  if (action === 'close-rutina') closeRutinaModal();
+  if (action === 'save-rutina') await saveRutinaBloque();
+  if (action === 'delete-rutina') await deleteRutinaBloque();
+
   if (action === 'switch-view') {
     switchView(actionEl.dataset.view);
   }
@@ -672,6 +710,84 @@ document.getElementById('debtModal').addEventListener('click', (e) => {
 document.getElementById('walletModal').addEventListener('click', (e) => {
   if (e.target.id === 'walletModal') closeWalletModal();
 });
+
+document.getElementById('rutinaModal').addEventListener('click', (e) => {
+  if (e.target.id === 'rutinaModal') closeRutinaModal();
+});
+
+function openRutinaModal(id){
+  document.getElementById('rutinaModal').style.display = 'flex';
+  document.getElementById('rDeleteBtn').classList.toggle('hide', !id);
+  const diaActivo = Store.getDiaSeleccionado();
+  document.getElementById('rDiaLabel').textContent = DIAS_LARGO[diaActivo];
+
+  if (id) {
+    const b = Store.getRutina().find(x => x.id === id);
+    document.getElementById('rutinaModalTitle').textContent = 'Editar bloque';
+    document.getElementById('rId').value = b.id;
+    document.getElementById('rTitulo').value = b.titulo;
+    document.getElementById('rHoraInicio').value = b.horaInicio;
+    document.getElementById('rHoraFin').value = b.horaFin;
+    document.getElementById('rTipo').value = b.tipo;
+  } else {
+    document.getElementById('rutinaModalTitle').textContent = 'Nuevo bloque';
+    document.getElementById('rId').value = '';
+    document.getElementById('rTitulo').value = '';
+    document.getElementById('rHoraInicio').value = '';
+    document.getElementById('rHoraFin').value = '';
+    document.getElementById('rTipo').value = 'personalizado';
+  }
+}
+
+function closeRutinaModal(){
+  document.getElementById('rutinaModal').style.display = 'none';
+}
+
+async function saveRutinaBloque(){
+  const id = document.getElementById('rId').value;
+  const titulo = document.getElementById('rTitulo').value.trim();
+  const horaInicio = document.getElementById('rHoraInicio').value;
+  const horaFin = document.getElementById('rHoraFin').value;
+  const tipo = document.getElementById('rTipo').value;
+  const dia = Store.getDiaSeleccionado();
+
+  if (!titulo) return toast('Ponele un título al bloque', 'error');
+  if (!horaInicio || !horaFin) return toast('Completá el horario', 'error');
+  if (horaFin <= horaInicio) return toast('La hora de fin debe ser posterior a la de inicio', 'error');
+
+  const btn = document.getElementById('btnSaveRutina');
+  btn.disabled = true;
+  try {
+    const bloques = Store.getRutina();
+    if (id) {
+      await Store.setRutina(bloques.map(b => b.id === id ? { id, dia, horaInicio, horaFin, titulo, tipo } : b));
+      toast('Bloque actualizado');
+    } else {
+      bloques.push({ id: uid(), dia, horaInicio, horaFin, titulo, tipo });
+      await Store.setRutina(bloques);
+      toast('Bloque agregado');
+    }
+    closeRutinaModal();
+    renderTimeline();
+  } catch (err) {
+    toast('No se pudo guardar. Revisá tu conexión.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteRutinaBloque(){
+  const id = document.getElementById('rId').value;
+  if (!id || !confirm('¿Eliminar este bloque de la rutina?')) return;
+  try {
+    await Store.setRutina(Store.getRutina().filter(b => b.id !== id));
+    closeRutinaModal();
+    renderTimeline();
+    toast('Bloque eliminado');
+  } catch (err) {
+    toast('No se pudo eliminar. Revisá tu conexión.', 'error');
+  }
+}
 
 function openWalletModal(id){
   document.getElementById('walletModal').style.display = 'flex';
