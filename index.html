@@ -63,7 +63,13 @@
 
           <!-- Rutina semanal -->
           <section id="rutinaSection" class="card card-accent stagger hoverable" style="--accent:var(--cyan); padding:16px;">
-            <p class="section-label" style="margin-bottom:10px;">Rutina semanal</p>
+            <div class="row-between" style="margin-bottom:10px;">
+              <p class="section-label" style="margin-bottom:0;">Rutina semanal</p>
+              <button data-action="new-rutina" style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:var(--cyan); background:none;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar bloque
+              </button>
+            </div>
             <div id="dayTabs" class="day-tabs"></div>
             <div id="timelineHost" class="timeline" style="margin-top:16px;"></div>
           </section>
@@ -185,6 +191,47 @@
 
 <!-- FAB: nueva deuda (solo visible en la vista Deudas) -->
 <button id="fabNuevaDeuda" class="fab hide" data-action="new-debt" title="Nueva deuda">+</button>
+
+<!-- Modal: bloque de rutina -->
+<div id="rutinaModal" class="modal-overlay">
+  <div class="modal-sheet card" style="max-width:420px;">
+    <div class="sheet-handle"></div>
+    <p id="rutinaModalTitle" style="font-size:17px; font-weight:800; margin:0 0 4px;">Nuevo bloque</p>
+    <p style="font-size:12px; color:var(--text-dim); margin:0 0 18px;">Para el <span id="rDiaLabel" class="mono" style="color:var(--cyan);">—</span></p>
+    <input type="hidden" id="rId">
+    <div class="col g-3">
+      <div>
+        <label style="display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Título</label>
+        <input id="rTitulo" type="text" placeholder="Ej: Gimnasio, Estudiar POO..." class="field">
+      </div>
+      <div class="grid-2" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <div>
+          <label style="display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Desde</label>
+          <input id="rHoraInicio" type="time" class="field mono">
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Hasta</label>
+          <input id="rHoraFin" type="time" class="field mono">
+        </div>
+      </div>
+      <div>
+        <label style="display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Tipo</label>
+        <select id="rTipo" class="field">
+          <option value="negocio">🏠 Negocio</option>
+          <option value="cursada">🎓 Cursada</option>
+          <option value="estudio">💻 Estudio</option>
+          <option value="viaje">🚌 Viaje</option>
+          <option value="personalizado">✨ Personalizado</option>
+        </select>
+      </div>
+    </div>
+    <div class="row g-2" style="margin-top:20px;">
+      <button data-action="close-rutina" class="btn btn-ghost2 flex-1">Cancelar</button>
+      <button id="btnSaveRutina" data-action="save-rutina" class="btn flex-1" style="background:linear-gradient(180deg,#67E8F9,var(--cyan)); color:#042a30;">Guardar</button>
+    </div>
+    <button id="rDeleteBtn" data-action="delete-rutina" class="hide" style="width:100%; margin-top:16px; text-align:center; font-size:12px; font-weight:700; color:var(--red); background:none;">Eliminar bloque</button>
+  </div>
+</div>
 
 <!-- Modal: billetera -->
 <div id="walletModal" class="modal-overlay">
