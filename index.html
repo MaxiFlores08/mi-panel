@@ -31,12 +31,6 @@
       </div>
     </header>
 
-    <div id="contextBar" class="card context-bar" style="margin-bottom:18px;">
-      <button data-context="local" class="context-btn">🏠 Local</button>
-      <button data-context="cursada" class="context-btn">🎓 Cursada</button>
-      <button data-context="estudio" class="context-btn">💻 Estudio</button>
-    </div>
-
     <div class="dashboard-grid">
       <div class="main-col">
 
@@ -52,6 +46,7 @@
             <div class="progress-track" style="margin:10px 0 6px;">
               <div id="metasProgress" class="progress-fill" style="width:0%;"></div>
             </div>
+            <p id="metasRacha" class="mono" style="font-size:11px; color:var(--amber); font-weight:700; margin:0 0 8px;"></p>
             <div id="metasList"></div>
           </section>
 
@@ -70,8 +65,30 @@
                 Agregar bloque
               </button>
             </div>
-            <div id="dayTabs" class="day-tabs"></div>
-            <div id="timelineHost" class="timeline" style="margin-top:16px;"></div>
+
+            <div id="dayTabsWrap">
+              <div id="dayTabs" class="day-tabs"></div>
+              <div id="timelineHost" class="timeline" style="margin-top:16px;"></div>
+            </div>
+
+            <div id="filtroWrap" class="hide" style="margin-top:4px;">
+              <div class="row-between" style="margin-bottom:12px;">
+                <p id="filtroTitulo" class="mono" style="font-size:13px; font-weight:800; margin:0;"></p>
+                <button data-action="clear-filtro" style="font-size:11px; font-weight:700; color:var(--text-faint); background:none;">✕ Cerrar</button>
+              </div>
+              <div id="filtroList" class="col g-2"></div>
+              <button data-action="new-rutina-filtro" class="btn btn-ghost2" style="width:100%; margin-top:12px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                Agregar bloque de este tipo
+              </button>
+            </div>
+
+            <div class="divider" style="margin:16px 0 12px;"></div>
+            <div class="row g-2" id="contextChips" style="flex-wrap:wrap;">
+              <button data-context="local" class="context-chip">🏠 Local</button>
+              <button data-context="cursada" class="context-chip">🎓 Cursada</button>
+              <button data-context="estudio" class="context-chip">💻 Estudio</button>
+            </div>
           </section>
 
         </div>
@@ -196,10 +213,21 @@
 <div id="rutinaModal" class="modal-overlay">
   <div class="modal-sheet card" style="max-width:420px;">
     <div class="sheet-handle"></div>
-    <p id="rutinaModalTitle" style="font-size:17px; font-weight:800; margin:0 0 4px;">Nuevo bloque</p>
-    <p style="font-size:12px; color:var(--text-dim); margin:0 0 18px;">Para el <span id="rDiaLabel" class="mono" style="color:var(--cyan);">—</span></p>
+    <p id="rutinaModalTitle" style="font-size:17px; font-weight:800; margin:0 0 18px;">Nuevo bloque</p>
     <input type="hidden" id="rId">
     <div class="col g-3">
+      <div>
+        <label style="display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Día</label>
+        <select id="rDia" class="field">
+          <option value="lunes">Lunes</option>
+          <option value="martes">Martes</option>
+          <option value="miercoles">Miércoles</option>
+          <option value="jueves">Jueves</option>
+          <option value="viernes">Viernes</option>
+          <option value="sabado">Sábado</option>
+          <option value="domingo">Domingo</option>
+        </select>
+      </div>
       <div>
         <label style="display:block; font-size:12px; font-weight:600; color:var(--text-dim); margin-bottom:6px;">Título</label>
         <input id="rTitulo" type="text" placeholder="Ej: Gimnasio, Estudiar POO..." class="field">
