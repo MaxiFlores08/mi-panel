@@ -15,12 +15,8 @@ const TIPO_META = {
   personalizado:{ label:'Personalizado',color:'#F472B6', icon:'✨' },
 };
 
-// Qué tipos de bloque resalta cada modo de contexto (personalizado nunca se atenúa)
-const CONTEXT_HIGHLIGHT = {
-  local:   ['negocio'],
-  cursada: ['cursada','viaje'],
-  estudio: ['estudio'],
-};
+// Qué tipo de bloque filtra cada chip (coinciden 1 a 1 por ahora)
+const CHIP_TIPO = { local:'negocio', cursada:'cursada', estudio:'estudio' };
 
 // Semilla inicial: solo se usa la primera vez, después vive en Turso y es 100% editable.
 const RUTINA_SEED = [
@@ -96,6 +92,10 @@ const Store = (() => {
       habitos: { entrenamiento:false, codigo:false, gastos:false },
     };
   }
+  // Accede al foco de cualquier fecha pasada (sin crear nada nuevo), para calcular rachas e historial.
+  function getFocusPorFecha(dateStr){
+    return cache['focus:' + dateStr] || null;
+  }
   async function setFocusHoy(data){
     await set(todayKey(), data);
   }
@@ -138,7 +138,7 @@ const Store = (() => {
   async function setRutina(v){ await set('rutinaBloques', v); }
 
   return {
-    refresh, getFocusHoy, setFocusHoy, getContext, setContext, getDiaSeleccionado, setDiaSeleccionado,
+    refresh, getFocusHoy, getFocusPorFecha, setFocusHoy, getContext, setContext, getDiaSeleccionado, setDiaSeleccionado,
     getDeudas, setDeudas, getPagos, setPagos, getWalletsFin, setWalletsFin, getRutina, setRutina,
   };
 })();
@@ -222,6 +222,49 @@ function toARS(monto, moneda){
 /* =========================================================
    2b. SELECTORS — cálculos financieros
    ========================================================= */
+/* =========================================================
+   2c. RACHAS — cuántos días seguidos venís cumpliendo
+   ========================================================= */
+function fechaHace(diasAtras){
+  const d = new Date();
+  d.setDate(d.getDate() - diasAtras);
+  return d.toISOString().slice(0, 10);
+}
+
+// Últimos N días de un hábito puntual: [{date, done}], del más viejo al más nuevo.
+function historialHabito(habitKey, dias = 7){
+  const out = [];
+  for (let i = dias - 1; i >= 0; i--) {
+    const entry = Store.getFocusPorFecha(fechaHace(i));
+    out.push({ dateStr: fechaHace(i), done: !!(entry && entry.habitos && entry.habitos[habitKey]) });
+  }
+  return out;
+}
+
+function rachaHabito(habitKey){
+  const hoyDone = !!(Store.getFocusHoy().habitos || {})[habitKey];
+  let racha = 0;
+  for (let i = hoyDone ? 0 : 1; i < 90; i++) {
+    const entry = Store.getFocusPorFecha(fechaHace(i));
+    if (entry && entry.habitos && entry.habitos[habitKey]) racha++;
+    else break;
+  }
+  return racha;
+}
+
+function rachaMetas(){
+  const hoy = Store.getFocusHoy();
+  const hoyCompleto = hoy.metas.filter(m => m.done).length === 3;
+  let racha = 0;
+  for (let i = hoyCompleto ? 0 : 1; i < 90; i++) {
+    const entry = Store.getFocusPorFecha(fechaHace(i));
+    const completo = entry && entry.metas && entry.metas.filter(m => m.done).length === 3;
+    if (completo) racha++;
+    else break;
+  }
+  return racha;
+}
+
 const Fin = {
   pagosDeDeuda(deudaId){ return Store.getPagos().filter(p => p.deudaId === deudaId); },
 
@@ -301,18 +344,63 @@ function switchView(name){
   });
 
   document.getElementById('fabNuevaDeuda').classList.toggle('hide', name !== 'deudas');
-  document.getElementById('contextBar').classList.toggle('hide', name !== 'inicio');
 
   if (name === 'deudas') {
     fetchRates().then(() => { renderFinSummary(); renderDeudas(); });
   }
 }
 
-function renderContextBar(activeOverride){
-  const active = activeOverride || Store.getContext();
-  document.querySelectorAll('.context-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.context === active);
+/* =========================================================
+   FILTRO POR CATEGORÍA — reemplaza al viejo "resaltado" de contexto.
+   Al elegir una categoría, se muestra la agenda de toda la semana
+   para ese tipo de bloque, en vez de solo atenuar el día actual.
+   ========================================================= */
+let filtroActivo = null;
+
+function activarFiltro(tipo, forzarCerrar){
+  filtroActivo = forzarCerrar ? null : (filtroActivo === tipo ? null : tipo);
+
+  document.querySelectorAll('.context-chip').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.context === filtroActivo);
   });
+
+  const dayWrap = document.getElementById('dayTabsWrap');
+  const filtroWrap = document.getElementById('filtroWrap');
+
+  if (filtroActivo) {
+    dayWrap.classList.add('hide');
+    filtroWrap.classList.remove('hide');
+    renderFiltroList();
+  } else {
+    dayWrap.classList.remove('hide');
+    filtroWrap.classList.add('hide');
+  }
+}
+
+function renderFiltroList(){
+  if (!filtroActivo) return;
+  const tipoReal = CHIP_TIPO[filtroActivo] || filtroActivo;
+  const meta = TIPO_META[tipoReal];
+  document.getElementById('filtroTitulo').textContent = `${meta.icon} ${meta.label} — toda la semana`;
+
+  const bloques = Store.getRutina()
+    .filter(b => b.tipo === tipoReal)
+    .sort((a, b) => DIAS.indexOf(a.dia) - DIAS.indexOf(b.dia) || a.horaInicio.localeCompare(b.horaInicio));
+
+  const host = document.getElementById('filtroList');
+  if (!bloques.length) {
+    host.innerHTML = `<p class="tl-empty">Todavía no tenés bloques de "${meta.label}". Agregá uno con el botón de abajo.</p>`;
+    return;
+  }
+
+  host.innerHTML = bloques.map(b => `
+    <div class="debt-row" data-action="edit-rutina" data-id="${b.id}" style="padding:12px;">
+      <div class="row-between">
+        <p style="font-size:13px; font-weight:700; margin:0;">${DIAS_LABEL[b.dia]} · ${escapeHtml(b.titulo)}</p>
+        <p class="mono" style="font-size:11px; color:var(--text-faint); margin:0;">${b.horaInicio}–${b.horaFin}</p>
+      </div>
+    </div>
+  `).join('');
 }
 
 function renderMetas(){
@@ -336,6 +424,10 @@ function renderMetas(){
   const done = data.metas.filter(m => m.done).length;
   document.getElementById('metasCount').textContent = `${done}/3`;
   document.getElementById('metasProgress').style.width = (done / 3 * 100) + '%';
+
+  const racha = rachaMetas();
+  const rachaEl = document.getElementById('metasRacha');
+  if (rachaEl) rachaEl.textContent = racha > 0 ? `🔥 ${racha} día${racha === 1 ? '' : 's'} seguidos` : '';
 }
 
 function renderHabitos(){
@@ -345,11 +437,24 @@ function renderHabitos(){
 
   HABITOS_DEF.forEach(h => {
     const on = data.habitos[h.key];
+    const racha = rachaHabito(h.key);
+    const historial = historialHabito(h.key, 7);
+    const tira = historial.map((d, idx) => {
+      const esHoy = idx === historial.length - 1;
+      return `<span class="habit-dot ${d.done ? 'done' : ''} ${esHoy ? 'today' : ''}"></span>`;
+    }).join('');
+
     const row = document.createElement('div');
     row.className = 'habit-row';
     row.innerHTML = `
       <div class="habit-icon">${h.icon}</div>
-      <p class="habit-label ${on ? 'done' : ''}">${h.label}</p>
+      <div class="flex-1" style="min-width:0;">
+        <div class="row-between">
+          <p class="habit-label ${on ? 'done' : ''}" style="margin:0;">${h.label}</p>
+          ${racha > 0 ? `<span class="mono" style="font-size:10px; color:var(--amber); font-weight:700;">🔥${racha}</span>` : ''}
+        </div>
+        <div class="row g-1" style="margin-top:6px;">${tira}</div>
+      </div>
       <div class="toggle ${on ? 'on' : ''}" data-action="toggle-habito" data-key="${h.key}">
         <div class="toggle-dot"></div>
       </div>
@@ -376,8 +481,6 @@ function renderDayTabs(){
 
 function renderTimeline(){
   const dia = Store.getDiaSeleccionado();
-  const context = Store.getContext();
-  const highlight = CONTEXT_HIGHLIGHT[context] || [];
   const bloques = Store.getRutina()
     .filter(b => b.dia === dia)
     .sort((a, b) => a.horaInicio.localeCompare(b.horaInicio));
@@ -391,9 +494,8 @@ function renderTimeline(){
 
   bloques.forEach(b => {
     const meta = TIPO_META[b.tipo] || TIPO_META.personalizado;
-    const dim = highlight.length && b.tipo !== 'personalizado' && !highlight.includes(b.tipo);
     const item = document.createElement('div');
-    item.className = `tl-item ${dim ? 'dim' : ''}`;
+    item.className = 'tl-item';
     item.dataset.action = 'edit-rutina';
     item.dataset.id = b.id;
     item.style.cursor = 'pointer';
@@ -404,6 +506,8 @@ function renderTimeline(){
     `;
     host.appendChild(item);
   });
+
+  if (filtroActivo) renderFiltroList();
 }
 
 function renderFinSummary(){
@@ -578,7 +682,6 @@ function moneyMoneda(n, moneda){
 
 function renderAll(){
   renderFecha();
-  renderContextBar();
   renderMetas();
   renderHabitos();
   renderDayTabs();
@@ -624,16 +727,7 @@ document.addEventListener('click', async (e) => {
 
   const ctxBtn = e.target.closest('[data-context]');
   if (ctxBtn) {
-    const prev = Store.getContext();
-    renderContextBar(ctxBtn.dataset.context); // respuesta visual inmediata
-    document.getElementById('rutinaSection').scrollIntoView({ behavior:'smooth', block:'center' });
-    try {
-      await Store.setContext(ctxBtn.dataset.context);
-      renderTimeline();
-    } catch (err) {
-      toast('No se pudo guardar. Revisá tu conexión.', 'error');
-      renderContextBar(prev);
-    }
+    activarFiltro(ctxBtn.dataset.context);
     return;
   }
 
@@ -670,6 +764,8 @@ document.addEventListener('click', async (e) => {
   if (action === 'close-rutina') closeRutinaModal();
   if (action === 'save-rutina') await saveRutinaBloque();
   if (action === 'delete-rutina') await deleteRutinaBloque();
+  if (action === 'clear-filtro') activarFiltro(null, true);
+  if (action === 'new-rutina-filtro') openRutinaModal(null, CHIP_TIPO[filtroActivo] || filtroActivo);
 
   if (action === 'switch-view') {
     switchView(actionEl.dataset.view);
@@ -715,16 +811,15 @@ document.getElementById('rutinaModal').addEventListener('click', (e) => {
   if (e.target.id === 'rutinaModal') closeRutinaModal();
 });
 
-function openRutinaModal(id){
+function openRutinaModal(id, prefillTipo){
   document.getElementById('rutinaModal').style.display = 'flex';
   document.getElementById('rDeleteBtn').classList.toggle('hide', !id);
-  const diaActivo = Store.getDiaSeleccionado();
-  document.getElementById('rDiaLabel').textContent = DIAS_LARGO[diaActivo];
 
   if (id) {
     const b = Store.getRutina().find(x => x.id === id);
     document.getElementById('rutinaModalTitle').textContent = 'Editar bloque';
     document.getElementById('rId').value = b.id;
+    document.getElementById('rDia').value = b.dia;
     document.getElementById('rTitulo').value = b.titulo;
     document.getElementById('rHoraInicio').value = b.horaInicio;
     document.getElementById('rHoraFin').value = b.horaFin;
@@ -732,10 +827,11 @@ function openRutinaModal(id){
   } else {
     document.getElementById('rutinaModalTitle').textContent = 'Nuevo bloque';
     document.getElementById('rId').value = '';
+    document.getElementById('rDia').value = Store.getDiaSeleccionado();
     document.getElementById('rTitulo').value = '';
     document.getElementById('rHoraInicio').value = '';
     document.getElementById('rHoraFin').value = '';
-    document.getElementById('rTipo').value = 'personalizado';
+    document.getElementById('rTipo').value = prefillTipo || 'personalizado';
   }
 }
 
@@ -745,11 +841,11 @@ function closeRutinaModal(){
 
 async function saveRutinaBloque(){
   const id = document.getElementById('rId').value;
+  const dia = document.getElementById('rDia').value;
   const titulo = document.getElementById('rTitulo').value.trim();
   const horaInicio = document.getElementById('rHoraInicio').value;
   const horaFin = document.getElementById('rHoraFin').value;
   const tipo = document.getElementById('rTipo').value;
-  const dia = Store.getDiaSeleccionado();
 
   if (!titulo) return toast('Ponele un título al bloque', 'error');
   if (!horaInicio || !horaFin) return toast('Completá el horario', 'error');
@@ -769,6 +865,7 @@ async function saveRutinaBloque(){
     }
     closeRutinaModal();
     renderTimeline();
+    if (filtroActivo) renderFiltroList();
   } catch (err) {
     toast('No se pudo guardar. Revisá tu conexión.', 'error');
   } finally {
@@ -783,6 +880,7 @@ async function deleteRutinaBloque(){
     await Store.setRutina(Store.getRutina().filter(b => b.id !== id));
     closeRutinaModal();
     renderTimeline();
+    if (filtroActivo) renderFiltroList();
     toast('Bloque eliminado');
   } catch (err) {
     toast('No se pudo eliminar. Revisá tu conexión.', 'error');
