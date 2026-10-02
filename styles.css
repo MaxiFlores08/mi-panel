@@ -81,10 +81,9 @@ input{ font-family:inherit; }
 .divider{ height:1px; background:linear-gradient(90deg, transparent, var(--border), transparent); }
 
 /* Selector de contexto */
-.context-bar{ display:flex; gap:6px; padding:4px; }
-.context-btn{ flex:1; padding:10px 8px; border-radius:12px; font-size:12px; font-weight:700; color:var(--text-faint); transition:all .18s ease; text-align:center; }
-.context-btn.active{ color:#1a0e33; background:linear-gradient(180deg,#C4B5FD,var(--violet-soft)); box-shadow:0 4px 16px -4px var(--violet-glow); }
-.context-btn:active{ transform:scale(.96); }
+.context-chip{ padding:8px 14px; border-radius:11px; font-size:12px; font-weight:700; color:var(--text-dim); background:var(--surface-2); border:1px solid var(--border-soft); transition:all .18s ease; }
+.context-chip.active{ color:#1a0e33; background:linear-gradient(180deg,#C4B5FD,var(--violet-soft)); border-color:var(--violet-soft); box-shadow:0 4px 14px -4px var(--violet-glow); }
+.context-chip:active{ transform:scale(.96); }
 
 .main-col{ display:flex; flex-direction:column; gap:16px; margin-bottom:20px; }
 
@@ -100,6 +99,9 @@ input{ font-family:inherit; }
 
 /* Hábitos */
 .habit-row{ display:flex; align-items:center; gap:12px; padding:12px 0; }
+.habit-dot{ width:16px; height:16px; border-radius:5px; background:var(--surface-3); border:1px solid var(--border-soft); flex-shrink:0; }
+.habit-dot.done{ background:var(--green-soft); border-color:var(--green-soft); box-shadow:0 0 6px 0 rgba(52,211,153,.4); }
+.habit-dot.today{ box-shadow:0 0 0 2px var(--amber); }
 .habit-icon{ width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; background:var(--surface-3); }
 .habit-label{ flex:1; font-size:14px; font-weight:600; }
 .habit-label.done{ color:var(--text-faint); text-decoration:line-through; }
